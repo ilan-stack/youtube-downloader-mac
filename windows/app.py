@@ -46,6 +46,9 @@ DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 USER_BIN = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "YTDownloader" / "bin"
 USER_BIN.mkdir(parents=True, exist_ok=True)
 
+USER_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "YTDownloader"
+COOKIES_FILE = USER_DATA_DIR / "cookies.txt"
+
 
 def resolve_binary(name: str) -> Path:
     """User override first, then bundled."""
@@ -156,7 +159,9 @@ def _format_string(height, audio_only: bool) -> str:
 def probe_url(url: str, cookies_from_browser: str = "") -> dict:
     yt = resolve_binary("yt-dlp")
     args = [str(yt), *_yt_dlp_base_args(), "--skip-download", "--dump-single-json", *_ffmpeg_location_args()]
-    if cookies_from_browser:
+    if COOKIES_FILE.exists():
+        args += ["--cookies", str(COOKIES_FILE)]
+    elif cookies_from_browser:
         args += ["--cookies-from-browser", cookies_from_browser]
     args.append(url)
     res = subprocess.run(args, capture_output=True, text=True, timeout=60,
@@ -254,9 +259,14 @@ def run_download(job_id: str, url: str, opts: dict):
     if start or end:
         args += ["--download-sections", f"*{start}-{end}", "--force-keyframes-at-cuts"]
 
-    cookies = (opts.get("cookies_from_browser") or "").strip()
-    if cookies:
-        args += ["--cookies-from-browser", cookies]
+    # Cookies file takes priority over cookies-from-browser (it's the reliable path
+    # when Chrome/Edge is running and has the cookie DB locked).
+    if COOKIES_FILE.exists():
+        args += ["--cookies", str(COOKIES_FILE)]
+    else:
+        cookies = (opts.get("cookies_from_browser") or "").strip()
+        if cookies:
+            args += ["--cookies-from-browser", cookies]
 
     args += ["--print", "after_move:FINAL|%(filepath)s"]
     args.append(url)
@@ -573,6 +583,33 @@ def api_cancel(job_id: str):
                 JOBS[job_id]["error"] = "Cancelled"
             return jsonify({"cancelled": True})
     return jsonify({"cancelled": False}), 404
+
+
+@app.route("/api/cookies-file", methods=["GET", "POST", "DELETE"])
+def api_cookies_file():
+    """Manage the cookies.txt the user has uploaded.
+    GET  → { "name": <basename>|null }
+    POST → upload a new cookies file (multipart form, field name "file")
+    DELETE → remove the stored cookies file"""
+    if request.method == "GET":
+        if COOKIES_FILE.exists():
+            return jsonify({"name": "cookies.txt", "size": COOKIES_FILE.stat().st_size})
+        return jsonify({"name": None})
+    if request.method == "DELETE":
+        COOKIES_FILE.unlink(missing_ok=True)
+        return jsonify({"ok": True})
+    # POST
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "no file"}), 400
+    USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    f.save(str(COOKIES_FILE))
+    # Sanity check — should look like a Netscape cookies file or have YouTube cookies
+    head = COOKIES_FILE.read_text(encoding="utf-8", errors="ignore")[:200]
+    if "youtube" not in head.lower() and "netscape" not in head.lower():
+        # Still accept, but warn — yt-dlp may complain.
+        return jsonify({"name": "cookies.txt", "warning": "File doesn't look like a Netscape cookies.txt"})
+    return jsonify({"name": "cookies.txt"})
 
 
 @app.route("/api/version")
