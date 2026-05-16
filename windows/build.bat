@@ -1,6 +1,6 @@
 @echo off
-REM Build YouTubeDownloader.exe via PyInstaller.
-REM Prerequisites: Python 3.11+ installed and on PATH.
+REM Build YouTubeDownloader.exe via PyInstaller, plus an Inno Setup installer if available.
+REM Prerequisites: Python 3.11+ on PATH. Optional: Inno Setup for the installer step.
 setlocal
 
 cd /d "%~dp0"
@@ -30,6 +30,33 @@ echo Built: dist\YouTubeDownloader.exe
 echo Size:
 dir dist\YouTubeDownloader.exe | findstr "YouTubeDownloader"
 echo ===========================================
+
+REM Build installer if Inno Setup is installed
+set "ISCC="
+for %%P in (
+    "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+    "%ProgramFiles%\Inno Setup 6\ISCC.exe"
+    "%ProgramFiles(x86)%\Inno Setup 5\ISCC.exe"
+) do (
+    if exist %%P set "ISCC=%%~P"
+)
+
+if defined ISCC (
+    echo.
+    echo Inno Setup found — compiling installer ...
+    "%ISCC%" installer.iss || goto :err
+    echo.
+    echo ===========================================
+    echo Built installer: Output\YouTubeDownloader-Setup.exe
+    dir Output\YouTubeDownloader-Setup.exe | findstr "Setup"
+    echo ===========================================
+) else (
+    echo.
+    echo NOTE: Inno Setup not installed — skipping installer step.
+    echo Install with:   winget install JRSoftware.InnoSetup
+    echo Then re-run:    build.bat
+)
+
 goto :eof
 
 :err

@@ -43,21 +43,34 @@ jobs:
         working-directory: windows
         run: pyinstaller --clean youtube-downloader.spec
 
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+        shell: pwsh
+
+      - name: Build Setup installer
+        working-directory: windows
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+
       - name: Show build output
         working-directory: windows
         run: |
           dir dist
-          dir dist\YouTubeDownloader.exe
+          dir Output
 
-      - name: Upload artifact (always)
+      - name: Upload artifacts (always)
         uses: actions/upload-artifact@v4
         with:
           name: YouTubeDownloader-windows
-          path: windows/dist/YouTubeDownloader.exe
+          path: |
+            windows/dist/YouTubeDownloader.exe
+            windows/Output/YouTubeDownloader-Setup.exe
 
       - name: Attach to GitHub Release (only on tag pushes)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: windows/dist/YouTubeDownloader.exe
+          files: |
+            windows/dist/YouTubeDownloader.exe
+            windows/Output/YouTubeDownloader-Setup.exe
           fail_on_unmatched_files: true
