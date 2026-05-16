@@ -19,10 +19,6 @@ a = Analysis(
         'yt_dlp.extractor',
         'yt_dlp.utils',
         'waitress',
-        # pywebview's Windows backend pulls these dynamically
-        'webview',
-        'webview.platforms.edgechromium',
-        'clr_loader',
     ],
     hookspath=[],
     hooksconfig={},

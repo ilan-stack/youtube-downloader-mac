@@ -311,34 +311,55 @@ def run_server():
         app.run(host="127.0.0.1", port=PORT, debug=False)
 
 
-def main():
-    # Start the HTTP server in a background thread.
-    threading.Thread(target=run_server, daemon=True).start()
-    wait_for_server()
+def find_browser_for_app_mode() -> str | None:
+    """Find Edge or Chrome — both support --app= which opens a URL in a frameless window
+    that looks like a native desktop app (no tabs, no address bar, dedicated taskbar entry)."""
+    candidates = [
+        # Microsoft Edge (always installed on Windows 10/11)
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+        # Chrome — typical installs
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
 
-    # Native desktop window via pywebview (WebView2 on Windows / WebKit on macOS).
-    # Falls back to the system default browser if pywebview isn't available.
+
+def main():
+    threading.Thread(target=run_server, daemon=True).start()
+    if not wait_for_server():
+        print("Server failed to start within 6 seconds.")
+        return
+
+    browser = find_browser_for_app_mode()
+    if browser:
+        # --app= opens the URL in its own window, no browser chrome. When the user
+        # closes the window, this subprocess returns and main() exits, which kills
+        # the Flask daemon thread cleanly.
+        profile_dir = os.path.join(os.environ.get("LOCALAPPDATA", os.getcwd()), "YTDownloader", "BrowserProfile")
+        os.makedirs(profile_dir, exist_ok=True)
+        import subprocess
+        subprocess.run([
+            browser,
+            f"--app={URL}",
+            f"--user-data-dir={profile_dir}",
+            "--window-size=820,900",
+            "--no-first-run",
+            "--no-default-browser-check",
+        ])
+        return
+
+    # Fallback: default browser (Chrome/Edge/Firefox) — opens as a regular tab.
+    webbrowser.open(URL)
     try:
-        import webview
-        window = webview.create_window(
-            title="YouTube Downloader",
-            url=URL,
-            width=820,
-            height=900,
-            resizable=True,
-            min_size=(560, 600),
-        )
-        webview.start()
-    except Exception:
-        print(f"YouTube Downloader running at {URL}")
-        print(f"Downloads → {DOWNLOAD_DIR}")
-        webbrowser.open(URL)
-        # Keep the process alive — when the server thread is daemon, main() would exit otherwise.
-        try:
-            while True:
-                time.sleep(60)
-        except KeyboardInterrupt:
-            pass
+        while True:
+            time.sleep(60)
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
