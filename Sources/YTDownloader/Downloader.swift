@@ -24,7 +24,6 @@ struct DownloadOptions {
     var includeAutoSubtitles: Bool = false
     var subtitleLanguage: String = "en"  // ISO code: en, iw, he, es, fr, de, etc.
     var cookiesFromBrowser: String? = nil  // "chrome", "safari", "firefox", "brave", "edge", "chromium"
-    var cookiesFile: URL? = nil  // Netscape-format cookies.txt exported from a browser extension
 }
 
 enum Downloader {
@@ -228,9 +227,7 @@ enum Downloader {
             "-o", template,
             "-f", formatString(for: options.preset),
         ]
-        if let file = options.cookiesFile {
-            args.append(contentsOf: ["--cookies", file.path])
-        } else if let browser = options.cookiesFromBrowser {
+        if let browser = options.cookiesFromBrowser {
             args.append(contentsOf: ["--cookies-from-browser", browser])
         }
         if options.preset?.audioOnly == true {

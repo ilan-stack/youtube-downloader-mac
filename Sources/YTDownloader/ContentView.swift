@@ -124,27 +124,7 @@ struct ContentView: View {
                         .pickerStyle(.menu)
                         .labelsHidden()
                         .frame(maxWidth: 220)
-                        .disabled(state.cookiesFile != nil)
-                        .help("Use cookies from a browser's cookie store. Requires the browser to be closed if it's Chrome/Edge. Disabled while a cookies file is set.")
-                    }
-                    HStack(spacing: 10) {
-                        Text("Cookies file:").font(.system(size: 12)).foregroundColor(.secondary)
-                        if let file = state.cookiesFile {
-                            Text(file.lastPathComponent)
-                                .font(.system(size: 12))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .frame(maxWidth: 220, alignment: .leading)
-                                .help(file.path)
-                            Button { state.clearCookiesFile() } label: {
-                                Image(systemName: "xmark.circle.fill").font(.system(size: 13))
-                            }
-                            .buttonStyle(.plain)
-                            .help("Clear")
-                        } else {
-                            Button("Choose cookies.txt…") { state.pickCookiesFile() }
-                                .help("Export cookies from your browser with the 'Get cookies.txt LOCALLY' extension and pick the file here. Reliable alternative to the dropdown above.")
-                        }
+                        .help("Sign in via your browser's cookies to bypass rate limits. The browser must be installed and you must be logged into YouTube there.")
                     }
                 }
                 .padding(.top, 6)

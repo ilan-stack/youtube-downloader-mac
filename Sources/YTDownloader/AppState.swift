@@ -18,10 +18,7 @@ final class AppState: ObservableObject {
     @Published var includeAutoSubtitles: Bool = false
     @Published var subtitleLanguage: String = "en"
     @Published var cookiesFromBrowser: String = ""   // "" = none
-    @Published var cookiesFile: URL?                  // user-picked cookies.txt
     @Published var showAdvanced: Bool = false
-
-    private let cookiesFileDefaultsKey = "cookiesFilePath"
 
     static let browserChoices: [(code: String, label: String)] = [
         ("", "None"),
@@ -72,11 +69,6 @@ final class AppState: ObservableObject {
 
     init() {
         refreshFiles()
-        // Restore previously-picked cookies file across launches.
-        if let saved = UserDefaults.standard.string(forKey: cookiesFileDefaultsKey) {
-            let url = URL(fileURLWithPath: saved)
-            if FileManager.default.fileExists(atPath: url.path) { cookiesFile = url }
-        }
         Task { await self.refreshVersion() }
         // Auto-fill from clipboard when app becomes active.
         NotificationCenter.default.addObserver(
@@ -156,8 +148,7 @@ final class AppState: ObservableObject {
             includeHumanSubtitles: includeHumanSubtitles,
             includeAutoSubtitles: includeAutoSubtitles,
             subtitleLanguage: subtitleLanguage,
-            cookiesFromBrowser: cookiesFromBrowser.isEmpty ? nil : cookiesFromBrowser,
-            cookiesFile: cookiesFile
+            cookiesFromBrowser: cookiesFromBrowser.isEmpty ? nil : cookiesFromBrowser
         )
 
         let job = Job(kind: .download, displayTitle: info?.title ?? url)
@@ -233,25 +224,6 @@ final class AppState: ObservableObject {
             }
             self.activeProcesses.removeValue(forKey: jobID)
         }
-    }
-
-    // MARK: - Cookies file picker
-
-    func pickCookiesFile() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.plainText, .text, .item]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.message = "Choose a cookies.txt file exported from your browser (Netscape format)."
-        if panel.runModal() == .OK, let url = panel.url {
-            cookiesFile = url
-            UserDefaults.standard.set(url.path, forKey: cookiesFileDefaultsKey)
-        }
-    }
-
-    func clearCookiesFile() {
-        cookiesFile = nil
-        UserDefaults.standard.removeObject(forKey: cookiesFileDefaultsKey)
     }
 
     func pickAndConvert() {
