@@ -689,21 +689,72 @@ def find_browser_for_app_mode() -> str | None:
     return None
 
 
+LOADING_HTML = """<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<title>YouTube Downloader</title>
+<style>
+  html,body{margin:0;height:100%;background:#0f1115;color:#e6e6e6;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;}
+  .center{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
+  .spinner{width:42px;height:42px;border:3px solid #262a33;border-top-color:#4c8bf5;
+    border-radius:50%;animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .title{font-size:18px;font-weight:600;letter-spacing:-0.02em;}
+  .sub{font-size:12px;color:#8a8f99;}
+</style>
+</head><body>
+<div class="center">
+  <div class="spinner"></div>
+  <div class="title">YouTube Downloader</div>
+  <div class="sub" id="msg">Starting up…</div>
+</div>
+<script>
+const URL = "__URL__";
+const msg = document.getElementById('msg');
+let tries = 0;
+async function check() {
+  tries++;
+  try {
+    const r = await fetch(URL + "/api/list", { cache: "no-store" });
+    if (r.ok) { location.replace(URL); return; }
+  } catch (e) {}
+  if (tries > 5) msg.textContent = "Still starting up (this can take a moment on first launch)…";
+  setTimeout(check, 400);
+}
+check();
+</script>
+</body></html>"""
+
+
+def write_loading_html() -> str:
+    """Write the splash page to %TEMP% and return its absolute path."""
+    import tempfile
+    path = os.path.join(tempfile.gettempdir(), "YTDownloader_loading.html")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(LOADING_HTML.replace("__URL__", URL))
+    return path
+
+
 def main():
     threading.Thread(target=run_server, daemon=True).start()
-    if not wait_for_server():
-        return
-    # Small extra grace so Edge --app's first connection always succeeds.
-    time.sleep(0.5)
     browser = find_browser_for_app_mode()
     if browser:
         profile_dir = os.path.join(os.environ.get("LOCALAPPDATA", os.getcwd()), "YTDownloader", "BrowserProfile")
         os.makedirs(profile_dir, exist_ok=True)
+        # Open the splash page FIRST. Its inline JS polls the API and redirects
+        # to the real URL once the server is up. This avoids the brief window
+        # where Edge would otherwise hit ERR_CONNECTION_REFUSED on cold start.
+        loading_path = write_loading_html()
+        loading_url = "file:///" + loading_path.replace("\\", "/").lstrip("/")
         subprocess.run([
-            browser, f"--app={URL}", f"--user-data-dir={profile_dir}",
+            browser, f"--app={loading_url}", f"--user-data-dir={profile_dir}",
             "--window-size=820,900", "--no-first-run", "--no-default-browser-check",
         ])
         return
+
+    # Headless fallback — wait for server then open default browser.
+    wait_for_server()
     webbrowser.open(URL)
     try:
         while True:
