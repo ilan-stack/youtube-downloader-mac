@@ -647,14 +647,23 @@ PORT = 8768
 URL = f"http://127.0.0.1:{PORT}"
 
 
-def wait_for_server(timeout: float = 6.0) -> bool:
+def wait_for_server(timeout: float = 30.0) -> bool:
+    """Poll until the server is up. First-run launches need a generous timeout because
+    PyInstaller --onefile extracts to %TEMP% and Windows Defender often scans the .exe."""
     deadline = time.time() + timeout
+    consecutive_ok = 0
     while time.time() < deadline:
         try:
             urllib.request.urlopen(URL + "/api/list", timeout=0.5).read()
-            return True
-        except Exception:
+            consecutive_ok += 1
+            # Require two successful pings — guards against the brief window between
+            # socket().bind() and the server actually serving requests.
+            if consecutive_ok >= 2:
+                return True
             time.sleep(0.1)
+        except Exception:
+            consecutive_ok = 0
+            time.sleep(0.15)
     return False
 
 
@@ -684,6 +693,8 @@ def main():
     threading.Thread(target=run_server, daemon=True).start()
     if not wait_for_server():
         return
+    # Small extra grace so Edge --app's first connection always succeeds.
+    time.sleep(0.5)
     browser = find_browser_for_app_mode()
     if browser:
         profile_dir = os.path.join(os.environ.get("LOCALAPPDATA", os.getcwd()), "YTDownloader", "BrowserProfile")
