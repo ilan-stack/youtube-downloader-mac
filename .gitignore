@@ -1,0 +1,21 @@
+# Swift build artifacts
+.build/
+.swiftpm/
+Package.resolved
+
+# Bundled binaries (fetched by scripts/fetch-binaries.sh)
+Resources/yt-dlp
+Resources/ffmpeg
+Resources/ffprobe
+
+# Built app / installer
+YouTube Downloader.app/
+YouTube Downloader.dmg
+.dmg-stage/
+
+# macOS / editor noise
+.DS_Store
+*.swp
+.idea/
+.vscode/
+xcuserdata/
