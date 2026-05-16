@@ -14,10 +14,16 @@ call .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt || goto :err
 
-if not exist bin\yt-dlp.exe (
-    echo Fetching bundled binaries ...
-    powershell -ExecutionPolicy Bypass -File fetch-binaries.ps1 || goto :err
-)
+REM Fetch any missing binaries — checks deno.exe too since it was added later.
+if not exist bin\yt-dlp.exe goto :fetch
+if not exist bin\ffmpeg.exe goto :fetch
+if not exist bin\ffprobe.exe goto :fetch
+if not exist bin\deno.exe goto :fetch
+goto :fetch_done
+:fetch
+echo Fetching bundled binaries ...
+powershell -ExecutionPolicy Bypass -File fetch-binaries.ps1 || goto :err
+:fetch_done
 
 rmdir /s /q build 2>nul
 rmdir /s /q dist 2>nul
